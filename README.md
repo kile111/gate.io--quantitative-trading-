@@ -17,7 +17,7 @@ A modern, offline-capable cryptocurrency trading bot and backtesting platform fo
 
 ```
 .
-├── app.py                  # Main Streamlit app (Chinese UI, stable)
+├── app.py                  # Main Streamlit app (English UI, stable)
 ├── trading_core.py         # Core trading logic, indicators, backtester, live trader
 ├── requirements.txt        # Python dependencies
 ├── run_app.bat             # Offline startup script (Windows)
@@ -62,7 +62,7 @@ A modern, offline-capable cryptocurrency trading bot and backtesting platform fo
 
 - Open [http://127.0.0.1:8501](http://127.0.0.1:8501) in your browser.
 - Use the sidebar to connect, set parameters, and switch between backtest, live trading, and logs.
-- All trading is in paper mode by default. To enable real trading, disable "模拟盘" and confirm risk acknowledgment.
+- All trading is in paper mode by default. To enable real trading, disable "paper trading" and confirm risk acknowledgment.
 
 ## Strategy Logic
 
@@ -78,7 +78,7 @@ A modern, offline-capable cryptocurrency trading bot and backtesting platform fo
 ## Notes
 
 - This tool is for educational and research purposes only. Crypto trading is risky.
-- The UI is in Chinese; code and comments are in English for clarity.
+- The UI is in English; code and comments are in English for clarity.
 - For offline use, ensure all wheels match your Python version.
 
 ## License
