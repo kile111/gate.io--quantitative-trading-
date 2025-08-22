@@ -1,4 +1,4 @@
-# app_zh.py — 中文界面（稳定版：秒级刷新 / 常显实时图 / 快捷交易对 / 模拟资金 自动+手动）
+# app_en.py — English UI (Stable: second-level refresh / always-on real-time chart / quick pairs / paper trading auto+manual)
 import os
 import json
 from typing import Optional
@@ -9,7 +9,7 @@ import plotly.graph_objs as go
 import streamlit as st
 from dotenv import load_dotenv
 
-# 可选：自动刷新（建议安装）
+# Optional: Auto-refresh (recommended)
 try:
     from streamlit_autorefresh import st_autorefresh  # pip install streamlit-autorefresh
     HAS_AUTOREFRESH = True
@@ -27,7 +27,7 @@ from trading_core import (
 # -----------------------------
 @st.cache_data(ttl=15, show_spinner=False)
 def _fetch_history_cached(_g, symbol: str, timeframe: str, days: int):
-    """仅缓存历史K线；_g 前下划线让 Streamlit 跳过对象哈希。"""
+    """Cache historical K-lines only; _g underscore lets Streamlit skip object hashing."""
     return fetch_history(_g, symbol, timeframe, days)
 
 
@@ -40,7 +40,7 @@ def _tf_minutes(tf: str) -> int:
 
 
 def _max_days_for_tf(tf: str, cap: int = 10_000) -> int:
-    """Gate.io 单次最多返回 cap 根K线；换算成天数上限。"""
+    """Gate.io returns at most cap K-lines per request; convert to max days."""
     mins = _tf_minutes(tf)
     return max(1, int(cap * mins / (60 * 24)))
 
@@ -94,29 +94,29 @@ def _build_market_fig(
 ):
     fig = go.Figure()
 
-    # 主K线
+    # Main K-line
     if show_candle and (df_hist is not None) and (not df_hist.empty):
         fig.add_trace(go.Candlestick(
             x=df_hist["dt"], open=df_hist["open"], high=df_hist["high"],
-            low=df_hist["low"], close=df_hist["close"], name="K线"
+            low=df_hist["low"], close=df_hist["close"], name="Candles"
         ))
 
-    # EMA 叠加
+    # EMA overlay
     if show_ema and ("ema_fast" in df_hist.columns) and ("ema_slow" in df_hist.columns):
-        fig.add_trace(go.Scatter(x=df_hist["dt"], y=df_hist["ema_fast"], name="EMA快", mode="lines"))
-        fig.add_trace(go.Scatter(x=df_hist["dt"], y=df_hist["ema_slow"], name="EMA慢", mode="lines"))
+        fig.add_trace(go.Scatter(x=df_hist["dt"], y=df_hist["ema_fast"], name="EMA Fast", mode="lines"))
+        fig.add_trace(go.Scatter(x=df_hist["dt"], y=df_hist["ema_slow"], name="EMA Slow", mode="lines"))
 
-    # DCA 模拟均线（滚动窗口）
+    # DCA simulated average (rolling window)
     if dca_on and (df_hist is not None) and (not df_hist.empty):
         win = max(1, int(dca_minutes / max(1, _tf_minutes(timeframe))))
         dca = df_hist["close"].rolling(window=win, min_periods=1).mean()
         fig.add_trace(go.Scatter(x=df_hist["dt"], y=dca, name=f"DCA({dca_minutes}m)", mode="lines"))
 
-    # 实时点
+    # Real-time points
     if show_live and df_live is not None and not df_live.empty:
-        fig.add_trace(go.Scatter(x=df_live["dt"], y=df_live["price"], name="实时价", mode="lines+markers"))
+        fig.add_trace(go.Scatter(x=df_live["dt"], y=df_live["price"], name="Live Price", mode="lines+markers"))
 
-    # 网格线
+    # Grid lines
     if grid_on and grid_center is not None and grid_levels > 0:
         step = float(grid_step_pct) / 100.0
         for k in range(-int(grid_levels), int(grid_levels) + 1):
@@ -124,7 +124,7 @@ def _build_market_fig(
             fig.add_hline(y=level, line_dash="dot", opacity=0.5,
                           annotation_text=f"Grid {k:+d}", annotation_position="right")
 
-    # 轴与交互
+    # Axes and interaction
     xaxis = dict(rangeslider=dict(visible=bool(use_rangeslider)),
                  rangeselector=dict(buttons=[
                      dict(count=15, label="15m", step="minute", stepmode="backward"),
@@ -143,17 +143,17 @@ def _build_market_fig(
 # -----------------------------
 # App setup
 # -----------------------------
-st.set_page_config(page_title="Gate.io 交易机器人", page_icon="📈", layout="wide")
-st.title("📈 Gate.io 交易机器人 — Streamlit")
+st.set_page_config(page_title="Gate.io Trading Bot", page_icon="📈", layout="wide")
+st.title("📈 Gate.io Trading Bot — Streamlit")
 
-with st.expander("⚠️ 免责声明"):
+with st.expander("⚠️ Disclaimer"):
     st.write(
-        "本工具仅用于学习与研究，不构成投资建议。加密资产交易存在较高风险。"
-        "默认启用【模拟盘】（Paper mode）。如需真实交易，请在明知风险的情况下自行开启。"
+        "This tool is for learning and research only and does not constitute investment advice. Crypto asset trading is risky."
+        "Paper mode is enabled by default. For real trading, enable at your own risk."
     )
 
 # -----------------------------
-# Session State 初始化
+# Session State Initialization
 # -----------------------------
 ss = st.session_state
 ss.setdefault("trader", None)
@@ -161,20 +161,20 @@ ss.setdefault("running", False)
 ss.setdefault("log_rows", [])
 ss.setdefault("live_prices", {})  # {symbol: DataFrame(dt, price)}
 ss.setdefault("symbol_input", "BTC/USDT")
-ss.setdefault("paper", None)  # 本地模拟资金账本
+ss.setdefault("paper", None)  # Local paper wallet
 ss.setdefault("equity_series", pd.DataFrame(columns=["dt", "equity"]))
 ss.setdefault("sim_prev_long_cond", None)
 
-# 处理『快捷切换』预设 —— 必须在侧边栏控件渲染之前
+# Handle 'Quick Switch' preset — must be before sidebar controls
 if "symbol_to_set" in ss:
     ss["symbol_input"] = ss.pop("symbol_to_set")
 
 # -----------------------------
-# Sidebar — 连接 & 参数
+# Sidebar — Connection & Parameters
 # -----------------------------
-st.sidebar.header("🔐 API / 连接")
+st.sidebar.header("🔐 API / Connection")
 load_dotenv()
-use_secrets = st.sidebar.checkbox("使用 Streamlit secrets（推荐）", value=True)
+use_secrets = st.sidebar.checkbox("Use Streamlit secrets (recommended)", value=True)
 if use_secrets and "GATEIO_API_KEY" in st.secrets and "GATEIO_SECRET" in st.secrets:
     api_key = st.secrets["GATEIO_API_KEY"]
     api_secret = st.secrets["GATEIO_SECRET"]
@@ -182,75 +182,75 @@ else:
     api_key = st.sidebar.text_input("GATEIO_API_KEY", os.getenv("GATEIO_API_KEY", ""), type="password")
     api_secret = st.sidebar.text_input("GATEIO_SECRET", os.getenv("GATEIO_SECRET", ""), type="password")
 
-default_type = st.sidebar.selectbox("市场类型", ["spot"], index=0, help="本应用当前专注现货。如需合约支持可告诉我。")
+default_type = st.sidebar.selectbox("Market Type", ["spot"], index=0, help="This app currently focuses on spot. Let me know if you need futures support.")
 
-st.sidebar.header("🧠 策略参数")
+st.sidebar.header("🧠 Strategy Parameters")
 col_a, col_b = st.sidebar.columns(2)
 fast_ema = col_a.number_input(
-    "EMA 快线", value=20, min_value=1, step=1,
-    help="指数移动平均（短期）。用于与慢线交叉判断趋势与入场；数值越小越灵敏。建议：10–20。",
+    "EMA Fast", value=20, min_value=1, step=1,
+    help="Exponential Moving Average (short-term). Used for trend and entry; smaller is more sensitive. Suggest: 10–20.",
 )
 slow_ema = col_b.number_input(
-    "EMA 慢线", value=50, min_value=2, step=1,
-    help="指数移动平均（长期）。更平滑；与快线交叉决定多空偏向。常见：50–200。",
+    "EMA Slow", value=50, min_value=2, step=1,
+    help="Exponential Moving Average (long-term). Smoother; crossover with fast line determines bias. Common: 50–200.",
 )
 rsi_period = col_a.number_input(
-    "RSI 周期", value=14, min_value=2, step=1,
-    help="相对强弱指数的计算窗口，用于衡量动量。周期越短越敏感；常见 14。",
+    "RSI Period", value=14, min_value=2, step=1,
+    help="Relative Strength Index window for momentum. Shorter is more sensitive; common: 14.",
 )
 rsi_long = col_b.number_input(
-    "RSI 做多阈值", value=55.0, step=0.5,
-    help="当 RSI 高于该值时满足做多条件之一；过高易追高，过低可能错过。建议：50–60。",
+    "RSI Long Threshold", value=55.0, step=0.5,
+    help="RSI above this triggers long; too high may chase, too low may miss. Suggest: 50–60.",
 )
 atr_period = col_a.number_input(
-    "ATR 周期", value=14, min_value=2, step=1,
-    help="平均真实波幅（波动率）计算窗口，用于确定止损/止盈距离。常见 14。",
+    "ATR Period", value=14, min_value=2, step=1,
+    help="Average True Range window for stop/take-profit. Common: 14.",
 )
 atr_sl_mult = col_b.number_input(
-    "ATR 止损倍数", value=1.5, step=0.1,
-    help="止损距离 = ATR × 倍数。倍数越大止损更宽，胜率↑但潜在回撤↑。建议：1–3。",
+    "ATR Stop Loss Multiplier", value=1.5, step=0.1,
+    help="Stop loss = ATR × multiplier. Higher = wider stop, higher win rate but bigger drawdown. Suggest: 1–3.",
 )
 atr_tp_mult = col_a.number_input(
-    "ATR 止盈倍数", value=3.0, step=0.1,
-    help="止盈距离 = ATR × 倍数。通常大于止损倍数以获得正期望。建议：2–4。",
+    "ATR Take Profit Multiplier", value=3.0, step=0.1,
+    help="Take profit = ATR × multiplier. Usually > stop loss for positive expectancy. Suggest: 2–4.",
 )
 
-st.sidebar.header("🎯 风控与执行")
+st.sidebar.header("🎯 Risk & Execution")
 fee_rate = st.sidebar.number_input(
-    "单边手续费 (例如 0.002 = 0.2%)", value=0.002, step=0.0001, format="%.4f",
-    help="每次买或卖的费率，用于回测和风控成本。现货典型范围 0.1%–0.2%。",
+    "Fee Rate (e.g. 0.002 = 0.2%)", value=0.002, step=0.0001, format="%.4f",
+    help="Fee per buy/sell, for backtest and risk. Typical spot: 0.1%–0.2%.",
 )
 slippage = st.sidebar.number_input(
-    "滑点 (例如 0.0005 = 5bp)", value=0.0005, step=0.0001, format="%.4f",
-    help="成交价相对盘口的预估偏差比例，反映冲击成本。建议：0.0002–0.001。",
+    "Slippage (e.g. 0.0005 = 5bp)", value=0.0005, step=0.0001, format="%.4f",
+    help="Estimated price deviation from order book. Suggest: 0.0002–0.001.",
 )
 risk_per_trade = st.sidebar.number_input(
-    "单笔风险占比", value=0.01, step=0.001, format="%.3f",
-    help="允许单笔最大亏损占账户权益的比例，用于头寸规模计算。常见 0.5%–2%。",
+    "Risk per Trade", value=0.01, step=0.001, format="%.3f",
+    help="Max loss per trade as % of equity. Used for position sizing. Common: 0.5%–2%.",
 )
 min_notional = st.sidebar.number_input(
-    "最小成交额（计价币）", value=10.0, step=1.0,
-    help="订单的最小名义金额（计价币），避免因过小被交易所拒单。按交易所规则设置。",
+    "Min Notional (quote)", value=10.0, step=1.0,
+    help="Minimum order notional (quote currency), per exchange rules.",
 )
 poll_sec = st.sidebar.number_input(
-    "轮询秒数", value=600, min_value=1, step=1,
-    help="实盘循环与图表刷新间隔（秒）。设置为 1 即每秒刷新（受交易所限频影响）。",
+    "Polling Seconds", value=600, min_value=1, step=1,
+    help="Live loop & chart refresh interval (seconds). 1 = every second (subject to exchange rate limits).",
 )
 
-st.sidebar.header("🧱 市场")
+st.sidebar.header("🧱 Market")
 st.sidebar.text_input(
-    "交易对", value=ss.get("symbol_input", "BTC/USDT"), key="symbol_input",
-    help="如 BTC/USDT；必须与交易所符号一致。可用『快捷切换』按钮一键更改。",
+    "Symbol", value=ss.get("symbol_input", "BTC/USDT"), key="symbol_input",
+    help="e.g. BTC/USDT; must match exchange symbol. Use 'Quick Switch' for one-click change.",
 )
 
 timeframe = st.sidebar.selectbox(
-    "周期",
+    "Timeframe",
     ["1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "6h", "12h", "1d"], index=0,
-    help="K线时间框，影响指标与信号节奏；回测与实盘保持一致。",
+    help="K-line interval; affects indicator/signal pace. Keep same for backtest/live.",
 )
 lookback_days = st.sidebar.number_input(
-    "回测窗口（天）", value=90, min_value=2, step=1,
-    help="下载用于回测的历史K线天数；越长越稳健但耗时更久。建议≥60天。",
+    "Backtest Window (days)", value=90, min_value=2, step=1,
+    help="Download historical K-lines for backtest; longer = more robust but slower. Suggest ≥60 days.",
 )
 
 # Build configs
@@ -265,12 +265,12 @@ rc = RiskConfig(
 )
 rt = RuntimeConfig(symbol=ss["symbol_input"], timeframe=timeframe, poll_sec=int(poll_sec), dry_run=True)
 
-connect_btn = st.sidebar.button("连接 / 重连")
+connect_btn = st.sidebar.button("Connect / Reconnect")
 
 # -----------------------------
 # Tabs: Backtest | Live | Logs
 # -----------------------------
-tab_bt, tab_live, tab_logs = st.tabs(["📊 回测", "🚦 实盘交易", "🧾 日志"])
+tab_bt, tab_live, tab_logs = st.tabs(["📊 Backtest", "🚦 Live Trading", "🧾 Logs"])
 
 # -----------------------------
 # Connection
@@ -283,71 +283,71 @@ if connect_btn or ss.trader is None:
     try:
         g = get_exchange(api_key, api_secret, default_type)
         ss.exchange = g
-        st.sidebar.success("已通过 ccxt 连接 Gate.io ✅")
+        st.sidebar.success("Connected to Gate.io via ccxt ✅")
     except Exception as e:
-        st.sidebar.error(f"连接失败: {e}")
+        st.sidebar.error(f"Connection failed: {e}")
 
 # -----------------------------
 # Backtest tab
 # -----------------------------
 with tab_bt:
-    st.subheader("回测")
-    run_bt = st.button("开始回测")
+    st.subheader("Backtest")
+    run_bt = st.button("Run Backtest")
     if run_bt:
         g = ss.get("exchange")
         if not g:
-            st.warning("请先连接交易所。")
+            st.warning("Please connect to exchange first.")
         else:
-            with st.spinner("正在下载K线并计算指标..."):
+            with st.spinner("Downloading K-lines and computing indicators..."):
                 eff_days = min(int(lookback_days), _max_days_for_tf(timeframe))
                 if eff_days < int(lookback_days):
-                    st.info(f"回测窗口已按交易所上限裁剪为 {eff_days} 天 ({timeframe} 最多约 10000 根K线).")
+                    st.info(f"Backtest window trimmed to {eff_days} days ({timeframe} max ~10000 K-lines).")
                 df = fetch_history(g, ss["symbol_input"], timeframe, eff_days)
                 df = compute_indicators(df, sc)
                 df = generate_signals(df, sc)
                 trades_df, results = backtest(df, sc, rc, starting_equity=10_000.0)
 
             k1, k2, k3, k4, k5 = st.columns(5)
-            k1.metric("笔数", results["trades"])
-            k2.metric("总收益", f"{results['total_return_pct']:.2f}%")
-            k3.metric("胜率", f"{results['win_rate_pct']:.2f}%")
-            k4.metric("平均单笔盈亏", f"{results['avg_trade_pnl']:.2f}")
-            k5.metric("最大回撤", f"{results['max_drawdown_pct']:.2f}%")
+            k1.metric("Trades", results["trades"])
+            k2.metric("Total Return", f"{results['total_return_pct']:.2f}%")
+            k3.metric("Win Rate", f"{results['win_rate_pct']:.2f}%")
+            k4.metric("Avg Trade PnL", f"{results['avg_trade_pnl']:.2f}")
+            k5.metric("Max Drawdown", f"{results['max_drawdown_pct']:.2f}%")
 
             price_fig = go.Figure()
             price_fig.add_trace(go.Candlestick(
-                x=df["dt"], open=df["open"], high=df["high"], low=df["low"], close=df["close"], name="K线",
+                x=df["dt"], open=df["open"], high=df["high"], low=df["low"], close=df["close"], name="Candles",
             ))
             price_fig.add_trace(go.Scatter(x=df["dt"], y=df["ema_fast"], name=f"EMA {sc.fast_ema}", mode="lines"))
             price_fig.add_trace(go.Scatter(x=df["dt"], y=df["ema_slow"], name=f"EMA {sc.slow_ema}", mode="lines"))
             entries = df[df["long_signal"]]
             exits = df[df["exit_signal"]]
-            price_fig.add_trace(go.Scatter(x=entries["dt"], y=entries["close"], mode="markers", name="开仓", marker=dict(symbol="triangle-up", size=9)))
-            price_fig.add_trace(go.Scatter(x=exits["dt"], y=exits["close"], mode="markers", name="平仓", marker=dict(symbol="triangle-down", size=9)))
+            price_fig.add_trace(go.Scatter(x=entries["dt"], y=entries["close"], mode="markers", name="Entry", marker=dict(symbol="triangle-up", size=9)))
+            price_fig.add_trace(go.Scatter(x=exits["dt"], y=exits["close"], mode="markers", name="Exit", marker=dict(symbol="triangle-down", size=9)))
             price_fig.update_layout(height=520, xaxis_rangeslider_visible=False, title=f"{ss['symbol_input']} {timeframe}")
             st.plotly_chart(price_fig, use_container_width=True)
 
-            st.write("交易列表")
+            st.write("Trade List")
             st.dataframe(trades_df, use_container_width=True)
             st.download_button(
-                "下载交易CSV",
+                "Download Trades CSV",
                 trades_df.to_csv(index=False).encode(),
                 file_name="trades_backtest.csv",
                 mime="text/csv",
             )
 
 # -----------------------------
-# Live tab（常显：实时图 + 快捷切换 + 模拟资金）
+# Live tab (always-on: real-time chart + quick switch + paper trading)
 # -----------------------------
 with tab_live:
-    st.subheader("实盘交易控制")
+    st.subheader("Live Trading Control")
 
-    # 全局自动刷新（无论是否启动，都可每秒更新行情/图表）
+    # Global auto-refresh (updates price/chart every second regardless of running)
     if HAS_AUTOREFRESH:
         st_autorefresh(interval=int(max(1, int(poll_sec)) * 1000), key="global_refresh")
 
-    # 快捷切换交易对（回调整体应用，避免与 text_input 冲突）
-    st.markdown("**快捷切换**（一键修改左侧交易对）")
+    # Quick switch pairs (reset app, avoid text_input conflict)
+    st.markdown("**Quick Switch** (one-click to change left symbol)")
     quick_pairs = ["BTC/USDT", "ETH/USDT", "XRP/USDT", "DOGE/USDT", "TAO/USDT"]
 
     def _qset(p: str):
@@ -357,70 +357,70 @@ with tab_live:
     for i, p in enumerate(quick_pairs):
         qcols[i].button(p, use_container_width=True, key=f"q_{p}", on_click=_qset, args=(p,))
 
-    # 实时图设置
+    # Real-time chart settings
     live_window_min = st.number_input(
-        "实时图窗口（分钟）", value=30, min_value=1, step=1,
-        help="实时价格线显示最近多少分钟的走势。",
+        "Live Chart Window (minutes)", value=30, min_value=1, step=1,
+        help="Show price line for the last N minutes.",
     )
 
-    # 常显：行情 + 历史K线 + 图表控件（无需启动）
+    # Always-on: market + historical K-line + chart controls (no need to start)
     ticker = None
     df_live = None
     g = ss.get("exchange")
     if g:
         try:
-            ticker = g.fetch_ticker(ss["symbol_input"])  # 最新价
+            ticker = g.fetch_ticker(ss["symbol_input"])  # Latest price
             if ticker.get("last") is not None:
                 df_live = _push_live_price(ss["symbol_input"], float(ticker["last"]), window_min=int(live_window_min))
         except Exception as e:
-            st.caption(f"拉取 {ss['symbol_input']} 行情失败：{e}")
+            st.caption(f"Failed to fetch {ss['symbol_input']} ticker: {e}")
 
-        # 拉历史 + 指标
+        # Fetch history + indicators
         eff_days_vis = min(max(int(lookback_days), 2), _max_days_for_tf(timeframe))
         df_hist = _fetch_history_cached(g, ss["symbol_input"], timeframe, eff_days_vis)
         df_hist = compute_indicators(df_hist, sc)
         df_hist = generate_signals(df_hist, sc)
 
-        # 图表选项（带问号）
-        st.markdown("#### 图表设置")
+        # Chart options (with help)
+        st.markdown("#### Chart Settings")
         cc1, cc2, cc3 = st.columns(3)
-        show_candle = cc1.toggle("显示K线", True, help="以历史K线展示 OHLC 数据。")
-        show_ema = cc2.toggle("叠加 EMA", True, help="在图上叠加 EMA 快/慢线，用于趋势研判。")
-        show_live = cc3.toggle("叠加实时点", True, help="叠加逐秒最新价，便于观察最新波动。")
+        show_candle = cc1.toggle("Show Candles", True, help="Show OHLC data as candles.")
+        show_ema = cc2.toggle("Overlay EMA", True, help="Overlay EMA fast/slow lines for trend.")
+        show_live = cc3.toggle("Overlay Live Price", True, help="Overlay latest price for real-time movement.")
 
         c4, c5, c6 = st.columns(3)
-        use_rangeslider = c4.toggle("启用时间滑条", True, help="显示底部范围滑条，可拖动缩放时间窗口。")
-        manual_y = c5.toggle("手动Y轴范围", False, help="勾选后可指定价格轴最小/最大值。")
-        dca_on = c6.toggle("DCA均线", False, help="用近 N 分钟收盘价的滚动均线模拟 DCA 成本线。")
+        use_rangeslider = c4.toggle("Enable Range Slider", True, help="Show bottom range slider for zoom.")
+        manual_y = c5.toggle("Manual Y-axis Range", False, help="Enable to set min/max price axis.")
+        dca_on = c6.toggle("DCA Line", False, help="Simulate DCA cost line with rolling close.")
 
-        ymn,ymx,dca_box = st.columns(3)
-        y_min = ymn.number_input("Y轴最小(0=自动)", value=0.0, help="设置为 0 表示自动。") if manual_y else None
-        y_max = ymx.number_input("Y轴最大(0=自动)", value=0.0, help="设置为 0 表示自动。") if manual_y else None
+        ymn, ymx, dca_box = st.columns(3)
+        y_min = ymn.number_input("Y-axis Min (0=auto)", value=0.0, help="0 means auto.") if manual_y else None
+        y_max = ymx.number_input("Y-axis Max (0=auto)", value=0.0, help="0 means auto.") if manual_y else None
         if manual_y:
             if y_min == 0.0: y_min = None
             if y_max == 0.0: y_max = None
-        dca_minutes = dca_box.number_input("DCA窗口(分钟)", value=60, min_value=1, step=5,
-                                           help="用于计算滚动均线的时间窗口大小。") if dca_on else 60
+        dca_minutes = dca_box.number_input("DCA Window (minutes)", value=60, min_value=1, step=5,
+                                           help="Rolling window for DCA line.") if dca_on else 60
 
-        st.markdown("#### 网格设置")
-        gc1,gc2,gc3,gc4 = st.columns(4)
-        grid_on = gc1.toggle("启用网格", False, help="以中心价为基准按步长%%画上下水平价位。")
+        st.markdown("#### Grid Settings")
+        gc1, gc2, gc3, gc4 = st.columns(4)
+        grid_on = gc1.toggle("Enable Grid", False, help="Draw horizontal grid lines around center price.")
         default_center = None
         if ticker and ticker.get("last") is not None:
             default_center = float(ticker["last"])
         elif not df_hist.empty:
             default_center = float(df_hist["close"].iloc[-1])
-        grid_center = gc2.number_input("中心价", value=float(default_center or 0.0), format="%.6f",
-                                        help="网格的中心参考价，默认取最新价/收盘价。") if grid_on else None
-        grid_step_pct = gc3.number_input("步长(%)", value=0.5, step=0.05, help="相邻网格之间的百分比间隔。") if grid_on else 0.5
-        grid_levels = gc4.number_input("层数(每侧)", value=4, min_value=1, step=1, help="向上/下各画多少层网格。") if grid_on else 4
+        grid_center = gc2.number_input("Center Price", value=float(default_center or 0.0), format="%.6f",
+                                        help="Grid center price, default to latest/close.") if grid_on else None
+        grid_step_pct = gc3.number_input("Step (%)", value=0.5, step=0.05, help="Percent gap between grids.") if grid_on else 0.5
+        grid_levels = gc4.number_input("Levels (each side)", value=4, min_value=1, step=1, help="How many grids up/down.") if grid_on else 4
 
-        # 组合绘图
+        # Compose chart
         _build_market_fig(
             df_hist=df_hist,
             df_live=df_live,
             timeframe=timeframe,
-            title=f"{ss['symbol_input']} 市场图",
+            title=f"{ss['symbol_input']} Market Chart",
             show_candle=show_candle,
             show_ema=show_ema,
             show_live=show_live,
@@ -435,29 +435,29 @@ with tab_live:
             grid_levels=int(grid_levels),
         )
     else:
-        st.caption("还未连接到交易所，无法拉取实时价格与历史K线。")
+        st.caption("Not connected to exchange, cannot fetch live price or history.")
 
-    # ========= 模拟资金（自动 & 手动） =========
+    # ========= Paper Trading (auto & manual) =========
     st.markdown("---")
-    st.markdown("### 🧪 模拟资金（本地记账，不与交易所交互）")
+    st.markdown("### 🧪 Paper Trading (local, not sent to exchange)")
 
     colp1, colp2, colp3 = st.columns([1, 1, 1])
-    use_paper_wallet = colp1.toggle("开启模拟资金", value=True, help="使用真实行情在本地进行资金变化模拟，不会下真实单。")
-    auto_trade_sim = colp2.toggle("自动按策略交易", value=True, help="用 EMA/RSI/ATR 信号在模拟资金里开/平仓（不受最小成交额限制）。")
-    paper_start_equity = colp3.number_input("初始资金 (USDT)", value=10_000.0, step=100.0)
+    use_paper_wallet = colp1.toggle("Enable Paper Trading", value=True, help="Simulate balance locally with real prices, no real orders.")
+    auto_trade_sim = colp2.toggle("Auto Trade by Strategy", value=True, help="Auto open/close by EMA/RSI/ATR signals (ignores min notional).")
+    paper_start_equity = colp3.number_input("Initial Equity (USDT)", value=10_000.0, step=100.0)
 
     alloc_pct = st.slider(
-        "每笔投入比例", min_value=0.05, max_value=1.0, value=0.10, step=0.05,
-        help="信号出现时，按该比例使用当前可用资金买入；平仓时全量卖出。",
+        "Allocation per Trade", min_value=0.05, max_value=1.0, value=0.10, step=0.05,
+        help="On signal, use this % of available cash to buy; sell all on exit.",
     )
 
-    # 初始化/切换品种时重置账本容器（不自动买卖）
+    # Reset wallet on init/symbol change (no auto buy/sell)
     if use_paper_wallet and (ss.paper is None or ss.paper.get("symbol_bound") != ss["symbol_input"]):
         ss.paper = {"cash": float(paper_start_equity), "base": 0.0, "avg": 0.0, "symbol_bound": ss["symbol_input"]}
-        ss.equity_series = pd.DataFrame(columns=["dt", "equity"])  # 清空曲线
+        ss.equity_series = pd.DataFrame(columns=["dt", "equity"])  # Clear curve
         ss.sim_prev_long_cond = None
 
-    # 自动策略（只在开启模拟资金&自动交易时触发）
+    # Auto strategy (only if paper trading & auto enabled)
     if use_paper_wallet and auto_trade_sim and g:
         try:
             eff_days_sim = min(max(int(lookback_days), 5), _max_days_for_tf(timeframe))
@@ -507,11 +507,11 @@ with tab_live:
                                 "action": "SIM SELL ALL", "entry": "", "exit": json.dumps({"price": eff_price}), "msg": "auto-sim",
                             })
         except Exception as e:
-            st.warning(f"自动模拟失败：{e}")
+            st.warning(f"Auto paper trading failed: {e}")
 
-    # 手动操作按钮
+    # Manual buttons
     colm1, colm2, colm3, colm4 = st.columns([1, 1, 1, 2])
-    if colm1.button("模拟买入 10%") and use_paper_wallet and ss.paper is not None and ticker and ticker.get("last") is not None:
+    if colm1.button("Sim Buy 10%") and use_paper_wallet and ss.paper is not None and ticker and ticker.get("last") is not None:
         price_ref = float(ticker["last"]) * (1 + float(slippage))
         quote_to_use = ss.paper["cash"] * 0.10
         if quote_to_use > 0:
@@ -524,7 +524,7 @@ with tab_live:
                 "ts": pd.Timestamp.utcnow(), "symbol": ss["symbol_input"], "timeframe": timeframe,
                 "action": f"SIM BUY 10% {qty:.6f}", "entry": json.dumps({"price": price_ref}), "exit": "", "msg": "manual",
             })
-    if colm2.button("全部卖出") and use_paper_wallet and ss.paper is not None and ticker and ticker.get("last") is not None:
+    if colm2.button("Sell All") and use_paper_wallet and ss.paper is not None and ticker and ticker.get("last") is not None:
         price_ref = float(ticker["last"]) * (1 - float(slippage))
         qty = ss.paper["base"]
         if qty > 0:
@@ -536,13 +536,13 @@ with tab_live:
                 "ts": pd.Timestamp.utcnow(), "symbol": ss["symbol_input"], "timeframe": timeframe,
                 "action": "SIM SELL ALL", "entry": "", "exit": json.dumps({"price": price_ref}), "msg": "manual",
             })
-    if colm3.button("重置模拟资金") and use_paper_wallet:
+    if colm3.button("Reset Paper Wallet") and use_paper_wallet:
         ss.paper = {"cash": float(paper_start_equity), "base": 0.0, "avg": 0.0, "symbol_bound": ss["symbol_input"]}
-        ss.equity_series = pd.DataFrame(columns=["dt", "equity"])  # 清空曲线
+        ss.equity_series = pd.DataFrame(columns=["dt", "equity"])  # Clear curve
         ss.sim_prev_long_cond = None
-        st.toast("模拟资金已重置。", icon="↩️")
+        st.toast("Paper wallet reset.", icon="↩️")
 
-    # 更新并显示模拟资金权益
+    # Update and show paper equity
     if use_paper_wallet and ss.paper is not None and ticker and ticker.get("last") is not None:
         price_now = float(ticker["last"]) if ticker.get("last") is not None else 0.0
         equity = ss.paper["cash"] + ss.paper["base"] * price_now
@@ -552,40 +552,40 @@ with tab_live:
         ss.equity_series = ss.equity_series[ss.equity_series["dt"] >= cutoff]
 
         e1, e2, e3 = st.columns(3)
-        e1.metric("模拟资金权益(USDT)", f"{equity:,.2f}")
-        e2.metric("持仓数量", f"{ss.paper['base']:.6f}")
+        e1.metric("Paper Equity (USDT)", f"{equity:,.2f}")
+        e2.metric("Position Size", f"{ss.paper['base']:.6f}")
         upnl = 0.0
         if ss.paper["base"] > 0 and ss.paper["avg"] > 0:
             upnl = (price_now - ss.paper["avg"]) / ss.paper["avg"] * 100
-        e3.metric("未实现盈亏%", f"{upnl:.2f}%")
-        _plot_equity(ss.equity_series, title="模拟资金权益曲线")
+        e3.metric("Unrealized PnL%", f"{upnl:.2f}%")
+        _plot_equity(ss.equity_series, title="Paper Equity Curve")
 
-    # ========= 实盘下单（可选） =========
+    # ========= Live Trading (optional) =========
     st.markdown("---")
     col1, col2, col3 = st.columns([1, 1, 2])
-    paper_mode = col1.toggle("模拟盘(真实下单开关)", value=True, help="开启=不发真实单，仅本地模拟；关闭+风险确认=才会发单。")
-    live_ack = col2.toggle("我已了解风险", value=False)
-    start_button = col3.button("启动 / 应用", type="primary")
-    stop_button = col3.button("停止")
+    paper_mode = col1.toggle("Paper Mode (real order switch)", value=True, help="On = no real orders, only local sim; Off + risk confirm = real orders.")
+    live_ack = col2.toggle("I understand the risks", value=False)
+    start_button = col3.button("Start / Apply", type="primary")
+    stop_button = col3.button("Stop")
 
     if start_button:
         g = ss.get("exchange")
         if not g:
-            st.warning("请先在左侧连接。")
+            st.warning("Please connect on the left first.")
         else:
             rt.dry_run = not (live_ack and not paper_mode)
             rt.symbol = ss["symbol_input"]
             ss.trader = LiveTrader(g, sc, rc, rt)
             ss.running = True
-            st.toast("已启动实时循环（下方『最近动作』将更新）。", icon="✅")
+            st.toast("Live loop started (see 'Recent Actions' below).", icon="✅")
 
     if stop_button:
         ss.running = False
         ss.trader = None
-        st.toast("已停止。", icon="🛑")
+        st.toast("Stopped.", icon="🛑")
 
     if ss.running and ss.trader is not None:
-        with st.spinner("轮询中..."):
+        with st.spinner("Polling..."):
             info = ss.trader.step()
         ss.log_rows.append({
             "ts": pd.Timestamp.utcnow(),
@@ -596,29 +596,29 @@ with tab_live:
             "exit": json.dumps(info.get("exit")),
             "msg": info.get("message", ""),
         })
-        st.write("**最近动作：**", info.get("action") or "—")
+        st.write("**Recent Action:**", info.get("action") or "—")
         if info.get("entry"):
-            st.write("开仓:", info["entry"])
+            st.write("Entry:", info["entry"])
         if info.get("exit"):
-            st.write("平仓:", info["exit"])
+            st.write("Exit:", info["exit"])
         if info.get("message"):
-            st.info(info["message"])  # trading_core 中的提示（英文）
+            st.info(info["message"])  # trading_core messages (English)
 
 # -----------------------------
 # Logs tab
 # -----------------------------
 with tab_logs:
-    st.subheader("会话日志")
+    st.subheader("Session Logs")
     if ss.log_rows:
         log_df = pd.DataFrame(ss.log_rows)
         st.dataframe(log_df, use_container_width=True, height=320)
         st.download_button(
-            "下载日志CSV",
+            "Download Logs CSV",
             log_df.to_csv(index=False).encode(),
             file_name="session_log.csv",
             mime="text/csv",
         )
     else:
-        st.caption("暂无动作。")
+        st.caption("No actions yet.")
 
-st.caption("提示：将密钥放入 `.streamlit/secrets.toml`，键名为 `GATEIO_API_KEY` 与 `GATEIO_SECRET`，更安全。")
+st.caption("Tip: Put your keys in `.streamlit/secrets.toml` as `GATEIO_API_KEY` and `GATEIO_SECRET` for better security.")
